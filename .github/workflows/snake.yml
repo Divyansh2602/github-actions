@@ -5,15 +5,22 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Two variants — light + dark — themed to the DIVYANSH://VOID
+      # cyan/ice palette used across the portfolio and profile README.
       - uses: Platane/snk@v3
         with:
           github_user_name: Divyansh2602
           outputs: |
-            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake.svg?color_snake=#0e7490&color_dots=#ebedf0,#bae6fd,#7dd3fc,#22d3ee,#0e7490
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark&color_snake=#22d3ee&color_dots=#161b22,#0e4a5e,#0e7490,#22d3ee,#7dd3fc
+
       - uses: crazy-max/ghaction-github-pages@v3
         with:
           target_branch: output
