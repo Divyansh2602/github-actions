@@ -8,24 +8,56 @@ on:
 permissions:
   contents: write
 
+# Never let two regenerations race each other onto main.
+concurrency:
+  group: 3d-contrib
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Isometric 3D skyline of the last year of contributions,
-      # themed to the cyan/void palette (see conf/3d-contrib-settings.json).
+      # Isometric 3D skyline, a contribution radar, and a language pie —
+      # all themed to the cyan/void palette (see conf/3d-contrib-settings.json).
       - uses: yoshi389111/github-profile-3d-contrib@0.7.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USERNAME: ${{ github.repository_owner }}
           SETTING_JSON: conf/3d-contrib-settings.json
 
-      - name: Commit & push generated SVG
+      - name: Commit & push generated SVGs
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A profile-3d-contrib/
-          git commit -m "chore: regenerate 3D contribution graph" || echo "no changes"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "Graphs unchanged — nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: regenerate 3D contribution graphs"
+
+          # Retry around the push: another scheduled job may have landed a
+          # commit between our checkout and here.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Pushed on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); rebasing on origin."
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          done
+
+          echo "::error::Could not push after 3 attempts."
+          exit 1
+
+      # Committing the new SVG is not enough — GitHub serves README images from
+      # its own cache, so the profile keeps showing the old one until purged.
+      - name: Refresh GitHub image cache
+        run: |
+          chmod +x scripts/purge-camo.sh
+          ./scripts/purge-camo.sh "${{ github.repository_owner }}"

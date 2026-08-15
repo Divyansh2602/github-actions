@@ -1,0 +1,32 @@
+name: Refresh Profile Image Cache
+
+# The profile README pulls live cards from third-party services — commit stats,
+# streak, activity graph, trophies. Nothing regenerates those; they render fresh
+# on request. What goes stale is GitHub's own image proxy in front of them, so
+# the profile can show week-old numbers with every workflow still green.
+#
+# The snake and 3D jobs purge the cache after they publish, but they only run
+# once a day. This job exists to keep the live cards current in between.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-cache
+  cancel-in-progress: true
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Purge cached profile images
+        run: |
+          chmod +x scripts/purge-camo.sh
+          ./scripts/purge-camo.sh "${{ github.repository_owner }}"
